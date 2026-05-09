@@ -266,8 +266,8 @@ class NeteaseMusicClient(BaseMusicClient):
     '''_parsewithnycnmbyfunsapi'''
     def _parsewithnycnmbyfunsapi(self, search_result: dict, request_overrides: dict = None):
         # init
-        REQUEST_KEYS = ['OTJiMWE4ZWQyMjg5ZmI4ZTk4NTAxZWMyYzE2Yzk4MWRmMWI1NzliMjhhM2Y2ZjIyMDFiYmJlNDc2YmI3Njc0MA==']
-        decrypt_func, request_overrides, song_id = lambda t: base64.b64decode(str(t).encode('utf-8')).decode('utf-8'), request_overrides or {}, search_result['id']
+        REQUEST_KEYS = ['charlespikachuZTYxMDlhMDJiYmYwMjg1MmJhZmIwMGE5ZjIzNWZlYWVjZDk4NTBhNjBlNWYyYmQ0YzQxYWNjYTczNjQwNGIwZA==', 'charlespikachuOWMxOGVmMTVhYjM2ODRjMGE4NTQ0ODZlYTg4MzcxZTQ1MDNjM2JjMWZjODYzODI1OTgzNzQwZGU5NTU3NTljYg==']
+        decrypt_func, request_overrides, song_id = lambda t: base64.b64decode(str(t)[14:].encode('utf-8')).decode('utf-8'), request_overrides or {}, search_result['id']
         # parse
         for music_quality in MUSIC_QUALITIES:
             with suppress(Exception): resp = None; (resp := self.get(f'https://api.nycnm.cn/API/163music.php?ids={song_id}&level={music_quality}&type=json&apikey={decrypt_func(random.choice(REQUEST_KEYS))}', timeout=10, **request_overrides)).raise_for_status(); download_result = resp2json(resp=resp)
