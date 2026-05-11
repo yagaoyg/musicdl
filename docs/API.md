@@ -339,6 +339,7 @@ End users usually do not create this class directly. Instead, they use subclasse
 
 - `musicdl.modules.sources.AppleMusicClient`
 - `musicdl.modules.sources.BilibiliMusicClient`
+- `musicdl.modules.sources.BodianMusicClient`
 - `musicdl.modules.sources.DeezerMusicClient`
 - `musicdl.modules.sources.FiveSingMusicClient`
 - `musicdl.modules.sources.FMAMusicClient`

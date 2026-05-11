@@ -7,6 +7,7 @@ WeChat Official Account (微信公众号):
     Charles的皮卡丘
 '''
 import os
+import re
 import uuid
 import copy
 import time
@@ -22,7 +23,6 @@ from rich.progress import Progress
 from pathvalidate import sanitize_filepath
 from ..utils.hosts import BODIAN_MUSIC_HOST
 from typing import Any, Dict, Tuple, TYPE_CHECKING
-from ..utils.kuwoutils import KuwoMusicClientUtils
 from urllib.parse import urlencode, urlparse, parse_qs, unquote, quote
 from rich.progress import Progress, TextColumn, BarColumn, TimeRemainingColumn, MofNCompleteColumn
 from ..utils import optionalimport, legalizestring, resp2json, usesearchheaderscookies, safeextractfromdict, useparseheaderscookies, obtainhostname, hostmatchessuffix, cleanlrc, SongInfo, AudioLinkTester, IOUtils, SongInfoUtils
@@ -150,7 +150,7 @@ class BodianMusicClient(BaseMusicClient):
         # supplement lyric results
         make_q_func = lambda song_id: base64.b64encode(quote(f"type=lyric&req=2&lrcx=1&rid={song_id}&songname=&artist=&corp=kuwo&fromchannel=bodian", safe="=&").encode("utf-8")).decode("ascii")
         url = f"http://mlyric.kuwo.cn/mobi.s?f=bodian&q={make_q_func(song_id)}&uid={self.auth_info['uid']}&token={self.auth_info['token']}"
-        with suppress(Exception): (resp := self.get(url, **request_overrides)).raise_for_status(); song_info.raw_data['lyric'] = resp2json(resp=resp); song_info.lyric = cleanlrc(KuwoMusicClientUtils.convertrawlrc(base64.b64decode(song_info.raw_data['lyric']['data']['content']).decode("utf-8", errors="replace"))) or song_info.lyric
+        with suppress(Exception): (resp := self.get(url, **request_overrides)).raise_for_status(); song_info.raw_data['lyric'] = resp2json(resp=resp); song_info.lyric = cleanlrc(re.sub(r"<-?\d+,-?\d+>", "", base64.b64decode(song_info.raw_data['lyric']['data']['content']).decode("utf-8", errors="replace"))) or song_info.lyric
         # return
         return song_info
     '''_search'''
@@ -186,18 +186,19 @@ class BodianMusicClient(BaseMusicClient):
     def parseplaylist(self, playlist_url: str, request_overrides: dict = None):
         # init
         playlist_url, playlist_id = self.session.head(playlist_url, allow_redirects=True, **(request_overrides := dict(request_overrides or {}))).url, None
-        with suppress(Exception): playlist_id, song_infos = parse_qs(urlparse(playlist_url).query, keep_blank_values=False).get('id')[0], []
+        with suppress(Exception): playlist_id, song_infos = ((q := parse_qs(urlparse(playlist_url).query)).get("playlistId") or q.get("playListId") or q.get("pid") or q.get("id"))[0], []
         if not playlist_id: playlist_id, song_infos = urlparse(playlist_url).path.strip('/').split('/')[-1].removesuffix('.html').removesuffix('.htm'), []
         if (not (hostname := obtainhostname(url=playlist_url))) or (not hostmatchessuffix(hostname, BODIAN_MUSIC_HOST)): return song_infos
         # get tracks in playlist
-        tracks_in_playlist, page, playlist_result_first = [], 1, {}
+        tracks_in_playlist, page, playlist_result_first, source_id = [], 1, {}, ((q := parse_qs(urlparse(playlist_url).query, keep_blank_values=True)).get("source") or q.get("sourceType"))[0]
         while True:
-            with suppress(Exception): (resp := self.get(f"https://m.kuwo.cn/newh5app/wapi/api/www/playlist/playListInfo?pid={playlist_id}&pn={page}&rn=100", **request_overrides)).raise_for_status()
-            if not locals().get('resp') or not hasattr(locals().get('resp'), 'text') or (not safeextractfromdict((playlist_result := resp2json(resp=resp)), ['data', 'musicList'], [])): break
-            tracks_in_playlist.extend(safeextractfromdict(playlist_result, ['data', 'musicList'], [])); page += 1; del resp
+            params = {"source": str(source_id or "5"), "pn": str(page), "rn": "100", "uid": self.auth_info['uid'], "token": self.auth_info['token']}
+            with suppress(Exception): (resp := self.get(f"https://bd-api.kuwo.cn/api/service/playlist/{playlist_id}/musicList", params=params, **request_overrides)).raise_for_status()
+            if not locals().get('resp') or not hasattr(locals().get('resp'), 'text') or (not safeextractfromdict((playlist_result := resp2json(resp=resp)), ['data', 'list'], [])): break
+            tracks_in_playlist.extend(safeextractfromdict(playlist_result, ['data', 'list'], [])); page += 1; del resp
             if not playlist_result_first: playlist_result_first = copy.deepcopy(playlist_result)
             if (float(safeextractfromdict(playlist_result, ['data', 'total'], 0)) <= len(tracks_in_playlist)): break
-        tracks_in_playlist = list({d["musicrid"]: d for d in tracks_in_playlist}.values())
+        tracks_in_playlist = list({d["id"]: d for d in tracks_in_playlist}.values())
         # parse track by track in playlist
         with Progress(TextColumn("{task.description}"), BarColumn(bar_width=None), MofNCompleteColumn(), TimeRemainingColumn(), refresh_per_second=10) as main_process_context:
             main_progress_id = main_process_context.add_task(f"{len(tracks_in_playlist)} Songs Found in Playlist {playlist_id} >>> Completed (0/{len(tracks_in_playlist)}) SongInfo", total=len(tracks_in_playlist))
@@ -211,7 +212,8 @@ class BodianMusicClient(BaseMusicClient):
                 self.logger_handle.warning(f'Fail to parse song id {song_info.identifier} >>> {song_info.album} {song_info.song_name} {song_info.singers} {song_info.download_url}', disable_print=self.disable_print)
             main_process_context.advance(main_progress_id, 1); main_process_context.update(main_progress_id, description=f"{len(tracks_in_playlist)} Songs Found in Playlist {playlist_id} >>> Completed ({idx+1}/{len(tracks_in_playlist)}) SongInfo")
         # post processing
-        playlist_name = legalizestring(safeextractfromdict(playlist_result_first, ['data', 'name'], None) or f"playlist-{playlist_id}")
+        with suppress(Exception): resp = None; (resp := self.get(f"https://bd-api.kuwo.cn/api/service/playlist/info/{playlist_id}", params={"source": str(source_id), "uid": self.auth_info['uid'], "token": self.auth_info['token']}, **request_overrides)).raise_for_status(); playlist_result_first['meta'] = resp2json(resp=resp)
+        playlist_name = legalizestring(safeextractfromdict(playlist_result_first, ['meta', 'data', 'name'], None) or f"playlist-{playlist_id}")
         song_infos, work_dir = self._removeduplicates(song_infos=song_infos), self._constructuniqueworkdir(keyword=playlist_name)
         for song_info in song_infos:
             song_info.work_dir, episodes = work_dir, song_info.episodes if isinstance(song_info.episodes, list) else []
