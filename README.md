@@ -65,7 +65,7 @@
 
 # 🎉 What's New
 
-- 2026-05-14: Released musicdl v2.11.8 — added support for music search and downloads from the Suno site, as well as playlist parsing and downloading; added multiple third-party parsing APIs for the Ximalaya and Qobuz platforms; optimized parts of the code.
+- 2026-05-14: Released musicdl v2.11.8 — added support for music search and downloads from the Suno site, as well as playlist parsing and downloading; added multiple third-party parsing APIs for the Ximalaya and Qobuz.
 - 2026-05-13: Released musicdl v2.11.7 — fix some broken third-party APIs for TIDAL, Qobuz, Deezer, YouTube, and Spotify, and add multiple new parsing APIs that include VIP accounts.
 - 2026-05-11: Released musicdl v2.11.6 — added support for Bodian Music, including search, download, and playlist parsing features; fixed multiple lossless music API endpoints; added several new lossless music API endpoints; Tidal now downloads in FLAC format by default.
 
