@@ -220,7 +220,7 @@ class QobuzMusicClient(BaseMusicClient):
     '''_parsewiththirdpartapis'''
     def _parsewiththirdpartapis(self, search_result: dict, request_overrides: dict = None):
         if QobuzMusicClientUtils.get_token_func(self.default_headers, "X-User-Auth-Token", "x-user-auth-token"): return SongInfo(source=self.source, raw_data={'quality': QobuzMusicClientUtils.MUSIC_QUALITIES[-1]})
-        for parser_func in [self._parsewithsquidapi, self._parsewithzarzapi, self._parsewithmonochromeapi, self._parsewithmusicdlapi, self._parsewithwjheapi, self._parsewithdabmusicapi, self._parsewithdabyeetsuapi]:
+        for parser_func in [self._parsewithmonochromeapi, self._parsewithmusicdlapi, self._parsewithsquidapi, self._parsewithzarzapi, self._parsewithwjheapi, self._parsewithdabmusicapi, self._parsewithdabyeetsuapi]:
             song_info_flac = SongInfo(source=self.source, raw_data={'search': search_result, 'download': {}, 'lyric': {}, 'quality': QobuzMusicClientUtils.MUSIC_QUALITIES[-1]})
             with suppress(Exception): song_info_flac = parser_func(search_result, request_overrides)
             if song_info_flac.with_valid_download_url and song_info_flac.ext in AudioLinkTester.VALID_AUDIO_EXTS: break
