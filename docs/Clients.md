@@ -2369,6 +2369,31 @@ WJHEMusicClient does not depend on external command-line tools such as ffmpeg or
 
 ## Unofficial Download Sites / Scrapers
 
+#### AlgerMusicClient
+
+[Alger Music](http://music.alger.fun/#/) is a clean and modern web-based music player for searching, streaming, and enjoying music online, with music sources provided by NetEase Cloud Music.
+
+When downloading music from Alger Music, AlgerMusicClient is the recommended tool.
+
+No additional CLI tools such as ffmpeg or N_m3u8DL-RE are required, just run pip install musicdl and start using AlgerMusicClient right away.
+
+(1) Command-Line Usage
+
+- Search for and Download Playable Music Files from Websites
+
+  `musicdl -m AlgerMusicClient`
+
+(2) Invoke It in Python
+
+- Search for and Download Playable Music Files from Websites
+
+  ```python
+  from musicdl import musicdl
+
+  music_client = musicdl.MusicClient(music_sources=['AlgerMusicClient'])
+  music_client.startcmdui()
+  ```
+
 #### BuguyyMusicClient
 
 [Buguyy](https://buguyy.top/) is an online music platform that lets users browse, stream, and download songs, with a focus on popular and curated tracks.
