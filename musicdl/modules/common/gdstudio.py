@@ -39,7 +39,7 @@ class GDStudioMusicClient(BaseMusicClient):
     def _yieldcallback(self):
         return f"jQuery{''.join([str(random.randint(0, 9)) for _ in range(21)])}_{int(time.time() * 1000)}"
     '''_yieldcrc32'''
-    def _yieldcrc32(self, id_value: str, hostname: str = 'music.gdstudio.xyz', version: str = "2025.11.4"):
+    def _yieldcrc32(self, id_value: str, hostname: str = 'music.gdstudio.xyz', version: str = "2026.5.10"):
         # timestamp
         with suppress(Exception): (resp := self.get('https://www.ximalaya.com/revision/time')).raise_for_status()
         ts9 = str(int(time.time() * 1000) if not locals().get('resp') or not hasattr(locals().get('resp'), 'text') else resp.text.strip())[:9]
@@ -90,7 +90,7 @@ class GDStudioMusicClient(BaseMusicClient):
                     download_url = urljoin(f'https://music.gdstudio.xyz/', download_url) if not str(download_url).startswith('http') else download_url
                     download_url = f'https://music-proxy.gdstudio.org/{download_url}' if search_result['source'] in {'bilibili'} else download_url
                     download_url_status: dict = self.audio_link_tester.test(url=download_url, request_overrides=request_overrides, renew_session=True)
-                    duration_in_secs = SongInfoUtils.estimatedurationwithfilesizebr(download_result.get('size', 0), download_result.get('br', br), return_seconds=True)
+                    duration_in_secs = SongInfoUtils.estimatedurationwithfilesizebr(float(download_result.get('size', 0)), float(download_result.get('br', br)), return_seconds=True)
                     song_info = SongInfo(
                         raw_data={'search': search_result, 'download': download_result, 'lyric': {}}, source=self.source, song_name=legalizestring(search_result.get('name')), singers=legalizestring(', '.join(search_result.get('artist') or [])), album=legalizestring(search_result.get('album')), ext=download_url_status['ext'], file_size_bytes=download_url_status['file_size_bytes'], 
                         file_size=download_url_status['file_size'], identifier=song_id, duration_s=duration_in_secs, duration=SongInfoUtils.seconds2hms(duration_in_secs), lyric=None, cover_url=None, download_url=download_url_status['download_url'], download_url_status=download_url_status, root_source=search_result['source'],
