@@ -82,12 +82,15 @@ class JooxMusicClient(BaseMusicClient):
     def _search(self, keyword: str = '', search_url: str = '', request_overrides: dict = None, song_infos: list = [], progress: Progress = None, progress_id: int = 0):
         # init
         request_overrides, parsed_search_url = request_overrides or {}, parse_qs(urlparse(search_url).query, keep_blank_values=True)
-        lang, country = parsed_search_url['lang'][0], parsed_search_url['country'][0]
+        lang, country, page_no = parsed_search_url['lang'][0], parsed_search_url['country'][0], 1
         # successful
         try:
             # --search results
             (resp := self.get(search_url, **request_overrides)).raise_for_status()
-            for search_result in resp2json(resp=resp)['tracks']:
+            task_id = progress.add_task(f"{self.source}._search >>> Start to process the 0th search result on page {page_no}", total=self.search_size_per_page if self.strict_limit_search_size_per_page else len(resp2json(resp=resp)['tracks']), completed=0)
+            for search_result_idx, search_result in enumerate(resp2json(resp=resp)['tracks']):
+                # --update progress
+                progress.update(task_id, description=f'{self.source}._search >>> Start to process the {search_result_idx+1}th search result on page {page_no}', completed=(len(song_infos) + 1) if self.strict_limit_search_size_per_page else (search_result_idx + 1))
                 # --init song info
                 search_result = search_result[0] if isinstance(search_result, list) else search_result
                 song_info = SongInfo(source=self.source, raw_data={'search': search_result, 'download': {}, 'lyric': {}})
