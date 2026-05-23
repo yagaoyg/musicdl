@@ -296,14 +296,17 @@ class YouTubeMusicClient(BaseMusicClient):
     @usesearchheaderscookies
     def _search(self, keyword: str = '', search_url: dict = {}, request_overrides: dict = None, song_infos: list = [], progress: Progress = None, progress_id: int = 0):
         # init
-        request_overrides, candidate_apis = request_overrides or {}, copy.deepcopy(search_url)['candidate_apis']
+        request_overrides, candidate_apis, page_no = request_overrides or {}, copy.deepcopy(search_url)['candidate_apis'], 1
         # successful
         try:
             # --search results
             ytmusicapi_candidate_api: dict = [c for c in candidate_apis if c['method'] in {'ytmusicapi'}][0]; rapidapi_candidate_api: dict = [c for c in candidate_apis if c['method'] in {'rapidapi'}][0]
             with suppress(Exception): search_results = None; resp = ytmusicapi_candidate_api['api'](**ytmusicapi_candidate_api['inputs']); search_results = [s for s in resp if s['resultType'] == 'song']
             if not search_results: resp = rapidapi_candidate_api['api'](**rapidapi_candidate_api['inputs']); search_results = resp2json(resp=resp)['result']
-            for search_result in (search_results or list()):
+            task_id = progress.add_task(f"{self.source}._search >>> Start to process the 0th search result on page {page_no}", total=None, completed=0)
+            for search_result_idx, search_result in enumerate(search_results or list()):
+                # --update progress
+                progress.update(task_id, description=f'{self.source}._search >>> Start to process the {search_result_idx+1}th search result on page {page_no}', completed=search_result_idx+1, total=search_result_idx+1)
                 # --init song info
                 song_info = SongInfo(source=self.source, raw_data={'search': search_result, 'download': {}, 'lyric': {}})
                 # --parse with third part apis
