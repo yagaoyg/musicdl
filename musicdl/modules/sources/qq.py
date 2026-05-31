@@ -30,9 +30,9 @@ class QQMusicClient(BaseMusicClient):
     def __init__(self, use_encrypted_endpoint: bool = False, **kwargs):
         super(QQMusicClient, self).__init__(**kwargs)
         self.use_encrypted_endpoint = use_encrypted_endpoint
-        self.default_search_headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36', 'Referer': 'https://y.qq.com/', 'Origin': 'https://y.qq.com/',}
-        self.default_parse_headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36', 'Referer': 'https://y.qq.com/', 'Origin': 'https://y.qq.com/',}
-        self.default_download_headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36', 'Referer': 'http://y.qq.com',}
+        self.default_search_headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36', 'Referer': 'https://y.qq.com/', 'Origin': 'https://y.qq.com/',}
+        self.default_parse_headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36', 'Referer': 'https://y.qq.com/', 'Origin': 'https://y.qq.com/',}
+        self.default_download_headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36', 'Referer': 'http://y.qq.com',}
         self.default_headers = self.default_search_headers
         self._initsession()
     '''_constructsearchurls'''
@@ -313,7 +313,8 @@ class QQMusicClient(BaseMusicClient):
     '''_parsewiththirdpartapis'''
     def _parsewiththirdpartapis(self, search_result: dict, request_overrides: dict = None):
         if self.default_cookies or request_overrides.get('cookies'): return SongInfo(source=self.source)
-        for parser_func in [self._parsewithtangapi, self._parsewithnkiapi, self._parsewithxianyuwapi, self._parsewithxunhuisiapi, self._parsewithcyapi, self._parsewithlxmusicapi, self._parsewithxcvtsapi, self._parsewithliuyunidcapi, self._parsewith317akapi, self._parsewithlpzapi, self._parsewithvkeysapi, self._parsewithygkingapi, self._parsewithluoyueapi]:
+        for parser_func in [self._parsewithxcvtsapi, self._parsewithxianyuwapi, self._parsewithtangapi, self._parsewith317akapi, self._parsewithcyapi, self._parsewithxunhuisiapi, self._parsewithlxmusicapi, 
+                            self._parsewithliuyunidcapi, self._parsewithnkiapi, self._parsewithlpzapi, self._parsewithvkeysapi, self._parsewithygkingapi, self._parsewithluoyueapi]:
             song_info_flac = SongInfo(source=self.source, raw_data={'search': search_result, 'download': {}, 'lyric': {}})
             with suppress(Exception): song_info_flac = parser_func(search_result, request_overrides)
             if song_info_flac.with_valid_download_url and song_info_flac.ext in AudioLinkTester.VALID_AUDIO_EXTS: break
