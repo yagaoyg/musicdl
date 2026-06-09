@@ -27,9 +27,10 @@ from ..utils import resp2json, legalizestring, safeextractfromdict, usesearchhea
 '''QQMusicClient'''
 class QQMusicClient(BaseMusicClient):
     source = 'QQMusicClient'
-    def __init__(self, use_encrypted_endpoint: bool = False, **kwargs):
+    def __init__(self, use_encrypted_endpoint: bool = False, preferred_quality: str = 'lossless', **kwargs):
         super(QQMusicClient, self).__init__(**kwargs)
         self.use_encrypted_endpoint = use_encrypted_endpoint
+        self.preferred_quality = preferred_quality
         self.default_search_headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36', 'Referer': 'https://y.qq.com/', 'Origin': 'https://y.qq.com/',}
         self.default_parse_headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36', 'Referer': 'https://y.qq.com/', 'Origin': 'https://y.qq.com/',}
         self.default_download_headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36', 'Referer': 'http://y.qq.com',}
@@ -317,6 +318,19 @@ class QQMusicClient(BaseMusicClient):
         l2_parser_funcs = [self._parsewithnkiapi, self._parsewithxianyuwapi, self._parsewithtangapi, self._parsewith317akapi, ] # vip
         l3_parser_funcs = [self._parsewithcyapi, self._parsewithxunhuisiapi, self._parsewithlxmusicapi, ] # vip account but only mp3 or m4a files can be requested
         l4_parser_funcs = [self._parsewithvkeysapi, self._parsewithlpzapi, self._parsewithygkingapi, self._parsewithluoyueapi, ] # invalid or unstable accounts
+        if self.preferred_quality == 'high_mp3':
+            # high_mp3 mode: prefer non-lossless results, fallback to lossless if nothing else available
+            lossless_fallback = SongInfo(source=self.source, raw_data={'search': search_result, 'download': {}, 'lyric': {}})
+            for parser_func in (l1_parser_funcs + l2_parser_funcs + l3_parser_funcs + l4_parser_funcs):
+                song_info_try = SongInfo(source=self.source, raw_data={'search': search_result, 'download': {}, 'lyric': {}})
+                with suppress(Exception): song_info_try = parser_func(search_result, request_overrides)
+                if song_info_try.with_valid_download_url and song_info_try.ext in AudioLinkTester.VALID_AUDIO_EXTS:
+                    if song_info_try.ext not in {'flac', 'mflac'}:
+                        return song_info_try
+                    if not lossless_fallback.with_valid_download_url:
+                        lossless_fallback = song_info_try
+            return lossless_fallback
+        # original behavior: break on first valid (usually FLAC)
         for parser_func in (l1_parser_funcs + l2_parser_funcs + l3_parser_funcs + l4_parser_funcs):
             song_info_flac = SongInfo(source=self.source, raw_data={'search': search_result, 'download': {}, 'lyric': {}})
             with suppress(Exception): song_info_flac = parser_func(search_result, request_overrides)
@@ -334,12 +348,13 @@ class QQMusicClient(BaseMusicClient):
         song_info, request_overrides, song_info_flac = SongInfo(source=self.source), request_overrides or {}, song_info_flac or SongInfo(source=self.source)
         if (not isinstance(search_result, dict)) or (not (song_id := search_result.get('mid') or search_result.get('songmid'))): return song_info
         # parse download url based on arguments
-        if lossless_quality_is_sufficient and song_info_flac.with_valid_download_url and (song_info_flac.ext in lossless_quality_definitions): song_info = song_info_flac
+        if self.preferred_quality != 'high_mp3' and lossless_quality_is_sufficient and song_info_flac.with_valid_download_url and (song_info_flac.ext in lossless_quality_definitions): song_info = song_info_flac
         else:
             if not safeextractfromdict(search_result, ['album', 'title'], None) or search_result.get('albumname'): search_result.update(self._getsongmetainfo(song_id=song_id, request_overrides=request_overrides))
             # --non-vip / vip users using enc_endpoint
             if self.use_encrypted_endpoint:
                 for music_quality in EncryptedSongFileType.SORTED_QUALITIES.value:
+                    if self.preferred_quality == 'high_mp3' and music_quality[1] in {'.flac', '.mflac'}: continue
                     params = {"filename": [f"{music_quality[0]}{song_id}{song_id}{music_quality[1]}"], "guid": QQMusicClientUtils.randomguid(), "songmid": [song_id], 'songtype': [0]}
                     current_rule = QQMusicClientUtils.buildrequestdata(params=params, module="music.vkey.GetEVkey", method="CgiGetEVkey", credential=Credential().fromcookiesdict(self.default_cookies or request_overrides.get('cookies', {})), common_override={"ct": "19"})
                     with suppress(Exception): resp = None; (resp := self.post(QQMusicClientUtils.enc_endpoint, data=json.dumps(current_rule, ensure_ascii=False, separators=(",", ":")).encode("utf-8"), params={"sign": QQMusicClientUtils.sign(current_rule)}, **request_overrides)).raise_for_status()
@@ -350,11 +365,12 @@ class QQMusicClient(BaseMusicClient):
                         raw_data={'search': search_result, 'download': download_result, 'lyric': {}, 'ekey': ekey}, source=self.source, song_name=legalizestring(search_result.get('title') or search_result.get('songname')), singers=legalizestring(', '.join([singer.get('name') for singer in (search_result.get('singer', []) or []) if isinstance(singer, dict) and singer.get('name')])), album=legalizestring(safeextractfromdict(search_result, ['album', 'title'], None) or search_result.get('albumname')), ext=download_url_status['ext'], file_size_bytes=download_url_status['file_size_bytes'], 
                         file_size=download_url_status['file_size'], identifier=str(song_id), duration_s=int(float(search_result.get('interval', 0) or 0)), duration=SongInfoUtils.seconds2hms(int(float(search_result.get('interval', 0) or 0))), lyric=None, cover_url=f"https://y.gtimg.cn/music/photo_new/T002R800x800M000{safeextractfromdict(search_result, ['album', 'mid'], '') or search_result.get('albummid')}.jpg", download_url=download_url_status['download_url'], download_url_status=download_url_status, 
                     )
-                    if song_info_flac.with_valid_download_url and song_info_flac.largerthan(song_info): song_info = song_info_flac
+                    if self.preferred_quality != 'high_mp3' and song_info_flac.with_valid_download_url and song_info_flac.largerthan(song_info): song_info = song_info_flac
                     if song_info.with_valid_download_url and song_info.ext in AudioLinkTester.VALID_AUDIO_EXTS: break
             # --non-vip / vip users using endpoint
             else:
                 for music_quality in SongFileType.SORTED_QUALITIES.value:
+                    if self.preferred_quality == 'high_mp3' and music_quality[1] in {'.flac'}: continue
                     params = {"filename": [f"{music_quality[0]}{song_id}{song_id}{music_quality[1]}"], "guid": QQMusicClientUtils.randomguid(), "songmid": [song_id], 'songtype': [0]}
                     current_rule = QQMusicClientUtils.buildrequestdata(params=params, module="music.vkey.GetVkey", method="UrlGetVkey", credential=Credential().fromcookiesdict(self.default_cookies or request_overrides.get('cookies', {})), common_override={"ct": "19"})
                     with suppress(Exception): resp = None; (resp := self.post(QQMusicClientUtils.endpoint, data=json.dumps(current_rule, ensure_ascii=False, separators=(",", ":")).encode("utf-8"), **request_overrides)).raise_for_status()
@@ -365,7 +381,7 @@ class QQMusicClient(BaseMusicClient):
                         raw_data={'search': search_result, 'download': download_result, 'lyric': {}}, source=self.source, song_name=legalizestring(search_result.get('title') or search_result.get('songname')), singers=legalizestring(', '.join([singer.get('name') for singer in (search_result.get('singer', []) or []) if isinstance(singer, dict) and singer.get('name')])), album=legalizestring(safeextractfromdict(search_result, ['album', 'title'], None) or search_result.get('albumname')), ext=download_url_status['ext'], file_size_bytes=download_url_status['file_size_bytes'], 
                         file_size=download_url_status['file_size'], identifier=str(song_id), duration_s=int(float(search_result.get('interval', 0) or 0)), duration=SongInfoUtils.seconds2hms(int(float(search_result.get('interval', 0) or 0))), lyric=None, cover_url=f"https://y.gtimg.cn/music/photo_new/T002R800x800M000{safeextractfromdict(search_result, ['album', 'mid'], '') or search_result.get('albummid')}.jpg", download_url=download_url_status['download_url'], download_url_status=download_url_status, 
                     )
-                    if song_info_flac.with_valid_download_url and song_info_flac.largerthan(song_info): song_info = song_info_flac
+                    if self.preferred_quality != 'high_mp3' and song_info_flac.with_valid_download_url and song_info_flac.largerthan(song_info): song_info = song_info_flac
                     if song_info.with_valid_download_url and song_info.ext in AudioLinkTester.VALID_AUDIO_EXTS: break
         if not (song_info := song_info if song_info.with_valid_download_url else song_info_flac).with_valid_download_url or song_info.ext not in AudioLinkTester.VALID_AUDIO_EXTS: return song_info
         # supplement lyric results
