@@ -22,7 +22,7 @@ from collections import defaultdict
 from fake_useragent import UserAgent
 from pathvalidate import sanitize_filepath
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn, DownloadColumn, TransferSpeedColumn, TimeRemainingColumn, MofNCompleteColumn, ProgressColumn, Task
+from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn, DownloadColumn, TransferSpeedColumn, TimeElapsedColumn, MofNCompleteColumn, ProgressColumn, Task
 from ..utils import LoggerHandle, AudioLinkTester, SongInfo, SongInfoUtils, HLSDownloader, IOUtils, usedownloadheaderscookies, usesearchheaderscookies, useparseheaderscookies, cookies2dict, cookies2string, optionalimport, optionalimportfrom
 
 
@@ -133,7 +133,7 @@ class BaseMusicClient():
         search_urls = self._constructsearchurls(keyword=keyword, rule=dict(rule or {}), request_overrides=(request_overrides := dict(request_overrides or {})))
         # multi threadings for searching music files
         owns_progress = True if main_process_context is None else False
-        if owns_progress: main_process_context = Progress(TextColumn("{task.description}"), BarColumn(bar_width=None), MofNCompleteColumn(), TimeRemainingColumn(), refresh_per_second=10); main_process_context.__enter__()
+        if owns_progress: main_process_context = Progress(TextColumn("{task.description}"), BarColumn(bar_width=None), MofNCompleteColumn(), TimeElapsedColumn(), refresh_per_second=10); main_process_context.__enter__()
         main_progress_lock = Lock() if main_progress_lock is None else main_progress_lock
         with main_progress_lock:
             progress_id = main_process_context.add_task(f"{self.source}.search >>> Completed (0/{len(search_urls)}) Search URLs", total=len(search_urls))
@@ -219,7 +219,7 @@ class BaseMusicClient():
         self.logger_handle.info(f'Start to download music files using {self.source}.', disable_print=self.disable_print)
         song_infos = [song_info for song_info in song_infos if song_info.with_valid_download_url and song_info.ext in AudioLinkTester.VALID_AUDIO_EXTS]
         # multi threadings for downloading music files
-        columns = [SpinnerColumn(), TextColumn("{task.description}"), BarColumn(bar_width=None), TaskProgressColumn(), AudioAwareColumn(), TransferSpeedColumn(), TimeRemainingColumn()]
+        columns = [SpinnerColumn(), TextColumn("{task.description}"), BarColumn(bar_width=None), TaskProgressColumn(), AudioAwareColumn(), TransferSpeedColumn(), TimeElapsedColumn()]
         with Progress(*columns, refresh_per_second=20, expand=True) as progress:
             songs_progress_id, song_progress_ids, submitted_tasks = progress.add_task(f"{self.source}.download >>> Completed (0/{len(song_infos)}) SongInfos", total=len(song_infos), kind='overall'), [], []; downloaded_song_infos: list[SongInfo] = []
             for _, song_info in enumerate(song_infos):

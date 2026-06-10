@@ -56,6 +56,7 @@ class MusicClient():
         self.clients_threadings = clients_threadings
         self.requests_overrides = requests_overrides
         self.music_sources = list(set(music_sources if music_sources else DEFAULT_MUSIC_SOURCES))
+        self.auto_supplement_song = {}
         # init
         self.logger_handle = LoggerHandle(); self.music_clients: dict[str, BaseMusicClient] = dict()
         for music_source in self.music_sources:
@@ -66,6 +67,7 @@ class MusicClient():
             }
             if music_source in {'GDStudioMusicClient', 'XimalayaMusicClient', 'LizhiMusicClient', 'QingtingMusicClient', 'LRTSMusicClient'}: init_music_client_cfg['search_size_per_source'] = 3
             init_music_client_cfg.update(init_music_clients_cfg.get(music_source, {}))
+            self.auto_supplement_song[music_source] = init_music_client_cfg.pop('auto_supplement_song', True)
             self.music_clients[music_source] = BuildMusicClient(module_cfg=init_music_client_cfg)
             self.work_dirs[music_source] = init_music_client_cfg['work_dir']
             if music_source not in self.clients_threadings: self.clients_threadings[music_source] = 5 if music_source not in {'GDStudioMusicClient'} else 10
@@ -118,7 +120,7 @@ class MusicClient():
         song_infos: list[SongInfo] = song_infos if isinstance(song_infos, list) else list(chain.from_iterable(song_infos.values()))
         for song_info in song_infos: classified_song_infos.setdefault(song_info.source, []).append(song_info)
         for source, source_song_infos in classified_song_infos.items():
-            downloaded_song_infos.extend(self.music_clients[source].download(song_infos=source_song_infos, num_threadings=self.clients_threadings[source], request_overrides=self.requests_overrides[source]))
+            downloaded_song_infos.extend(self.music_clients[source].download(song_infos=source_song_infos, num_threadings=self.clients_threadings[source], request_overrides=self.requests_overrides[source], auto_supplement_song=self.auto_supplement_song.get(source, True)))
         return downloaded_song_infos
     '''parseplaylist'''
     def parseplaylist(self, playlist_url: str) -> list[SongInfo]:

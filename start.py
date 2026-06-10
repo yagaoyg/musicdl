@@ -15,6 +15,7 @@ init_music_clients_cfg = {
     'QQMusicClient': {
         'work_dir': 'qq',
         'preferred_quality': 'high_mp3',  # 跳过无损FLAC, 优先下载高品质MP3 (320kbps)
+        'auto_supplement_song': False,    # 不下载LRC歌词文件, 只下载歌曲
     },
 }
 
@@ -25,7 +26,7 @@ music_client = musicdl.MusicClient(
 )
 
 # 下载歌单
-song_infos = music_client.parseplaylist("https://y.qq.com/n/ryqq_v2/playlist/858834355")
+song_infos = music_client.parseplaylist("https://y.qq.com/n/ryqq_v2/playlist/7233601871")
 music_client.download(song_infos=song_infos)
 
 # 启动交互式界面

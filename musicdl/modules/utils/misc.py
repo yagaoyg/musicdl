@@ -331,7 +331,7 @@ class AudioLinkTester:
         # return
         return None, "NULL"
     '''test'''
-    def test(self, url: str, request_overrides: Optional[dict] = None, renew_session: bool = True) -> Dict[str, Any]:
+    def test(self, url: str, request_overrides: Optional[dict] = None, renew_session: bool = False) -> Dict[str, Any]:
         # init
         if renew_session: self.session.close(); self.session = requests.Session()
         result, reason = {"ok": False, "ctype": "", "ext": "NULL", "original_download_url": url, "download_url": url, "file_size": "NULL", "file_size_bytes": 0, "method": "", "status_code": 0, "reason": []}, []
